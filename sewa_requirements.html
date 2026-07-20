@@ -13,6 +13,7 @@
   --grn:#4b7c5a;--grn-bg:#f0faf4;--grn-bd:#b6dfc5;
   --amb:#92400e;--amb-bg:#fffbf0;--amb-bd:#fde68a;
   --blu:#2563eb;--blu-bg:#eff6ff;--blu-bd:#bfdbfe;
+  --pur:#7c3aed;--pur-bg:#f5f3ff;--pur-bd:#ddd6fe;
   --red:#b91c1c;--red-bg:#fef2f2;
   --bg:#f4f5f7;--surf:#fff;--bdr:#e5e7eb;--bdr-lt:#f3f4f6;
   --txt:#111827;--txt2:#6b7280;--txt3:#9ca3af;
@@ -95,8 +96,22 @@ select.fp-sel:focus,input.fp-inp:focus{border-color:var(--pr);box-shadow:0 0 0 2
 .fc-dept{background:var(--pr-pl);color:var(--pr);border:1px solid var(--pr-md)}
 .fc-sewa{background:var(--blu-bg);color:var(--blu);border:1px solid var(--blu-bd)}
 .fc-date{background:#f8fafc;color:var(--txt2);border:1px solid var(--bdr)}
+.fc-mode-beas{background:var(--blu-bg);color:var(--blu);border:1px solid var(--blu-bd);font-weight:700}
+.fc-mode-mc{background:var(--pur-bg);color:var(--pur);border:1px solid var(--pur-bd);font-weight:700}
 .clear-all{margin-left:auto;font-size:11.5px;color:var(--pr);background:none;border:none;cursor:pointer;font-weight:600;padding:0;white-space:nowrap}
 .clear-all:hover{text-decoration:underline}
+
+/* ── SEARCH SCOPE TOGGLE (Beas / Major Centre) ── */
+.mode-toggle{display:flex;background:var(--bg);border:1px solid var(--bdr);border-radius:7px;overflow:hidden;flex-shrink:0}
+.mt-btn{padding:6px 13px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:var(--txt2);font-family:inherit;transition:all .12s;white-space:nowrap}
+.mt-btn.active-beas{background:#fff;color:var(--blu);box-shadow:var(--sh)}
+.mt-btn.active-mc{background:#fff;color:var(--pur);box-shadow:var(--sh)}
+.mc-note{
+  display:flex;align-items:flex-start;gap:7px;width:100%;
+  background:var(--pur-bg);border:1px solid var(--pur-bd);color:var(--pur);
+  border-radius:7px;padding:8px 12px;font-size:12px;line-height:1.4;
+}
+.mc-note svg{width:14px;height:14px;flex-shrink:0;margin-top:1px}
 
 /* ── SUMMARY STAT BAR ── */
 .stat-bar{
@@ -655,6 +670,13 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
   <!-- FILTER PANEL -->
   <div class="filter-panel" id="filterPanel">
     <div class="fp-inner">
+      <div class="fp-field" style="min-width:auto;max-width:none;flex:0 0 auto">
+        <div class="fp-label">Search Scope</div>
+        <div class="mode-toggle" id="modeToggle">
+          <button type="button" class="mt-btn active-beas" id="modeBeasBtn" onclick="setMode('beas')">Beas</button>
+          <button type="button" class="mt-btn" id="modeMcBtn" onclick="setMode('mc')">Major Centre</button>
+        </div>
+      </div>
       <div class="fp-field">
         <div class="fp-label">Period</div>
         <select class="fp-sel" id="fPeriod" onchange="applyFilters()">
@@ -680,18 +702,47 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
         <div class="fp-label">To Date</div>
         <input type="date" class="fp-inp" id="fTo" onchange="applyFilters()">
       </div>
-      <div class="fp-field">
+
+      <!-- BEAS ONLY: State → Area → Centre hierarchy -->
+      <div class="fp-field" data-scope="beas" id="fldState">
+        <div class="fp-label">State</div>
+        <select class="fp-sel" id="fState" onchange="onStateChange()">
+          <option value="">All States</option>
+        </select>
+      </div>
+      <div class="fp-field" data-scope="beas" id="fldArea">
         <div class="fp-label">Area</div>
-        <select class="fp-sel" id="fArea" onchange="applyFilters()">
+        <select class="fp-sel" id="fArea" onchange="onAreaChange()">
           <option value="">All Areas</option>
         </select>
       </div>
-      <div class="fp-field">
+      <div class="fp-field" data-scope="beas" id="fldCentre">
+        <div class="fp-label">Centre</div>
+        <select class="fp-sel" id="fCentre" onchange="applyFilters()">
+          <option value="">All Centres</option>
+        </select>
+      </div>
+      <div class="fp-field" data-scope="beas" id="fldDept">
         <div class="fp-label">Department</div>
         <select class="fp-sel" id="fDept" onchange="applyFilters()">
           <option value="">All Departments</option>
         </select>
       </div>
+
+      <!-- MAJOR CENTRE ONLY: replaces State + Area -->
+      <div class="fp-field" data-scope="mc" id="fldMC" style="display:none">
+        <div class="fp-label">Major Centre</div>
+        <select class="fp-sel" id="fMC" onchange="applyFilters()">
+          <option value="">All Major Centres</option>
+        </select>
+      </div>
+      <div class="fp-field" data-scope="mc" id="fldMCDept" style="display:none">
+        <div class="fp-label">MC Department</div>
+        <select class="fp-sel" id="fMCDept" onchange="applyFilters()">
+          <option value="">All MC Departments</option>
+        </select>
+      </div>
+
       <div class="fp-field">
         <div class="fp-label">Sewa Name</div>
         <select class="fp-sel" id="fSewa" onchange="applyFilters()">
@@ -702,12 +753,18 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
         <button class="btn btn-sec btn-sm" onclick="clearFilters()">Clear All</button>
         <button class="btn btn-pr btn-sm" onclick="applyFilters()">Apply</button>
       </div>
+
+      <div class="mc-note" data-scope="mc" id="mcNote" style="display:none">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 16v-4m0-4h.01"/></svg>
+        <span><strong>MCs report directly to the Zone</strong> — Major Centres have no State or Area above them, so those filters are replaced by a single Major Centre selector.</span>
+      </div>
     </div>
   </div>
 
   <!-- ACTIVE FILTER CHIPS -->
   <div class="filter-chips" id="filterChips">
     <span class="fc-label">Showing:</span>
+    <span class="fc-chip fc-mode-beas">Beas</span>
     <span class="fc-chip fc-period">LEAN 2026 <span class="fc-x" onclick="clearFilter('period')">✕</span></span>
     <button class="clear-all" onclick="clearFilters()">Clear all filters</button>
   </div>
@@ -910,7 +967,9 @@ function resetAddForm() {
 
 /* ════════ LISTING JS ════════ */
 
-// ── MASTER DATA ───────────────────────────────────────
+// ── MASTER DATA (BEAS) ─────────────────────────────────
+const STATES = ['HARYANA','PUNJAB','DELHI NCR','UTTARAKHAND'];
+
 const DEPARTMENTS = [
   {id:'ACC', name:'ACCOMMODATION', color:'#a8213a'},
   {id:'LNG', name:'LANGAR',        color:'#2563eb'},
@@ -926,18 +985,52 @@ const SEWA_BY_DEPT = {
 };
 
 const AREAS = [
-  {name:'YAMUNA NAGAR',zone:'Zone-I'},
-  {name:'SONEPAT',     zone:'Zone-I'},
-  {name:'ROPAR',       zone:'Zone-II'},
-  {name:'PANIPAT',     zone:'Zone-I'},
-  {name:'MOHALI',      zone:'Zone-II'},
-  {name:'KURUKSHETRA', zone:'Zone-I'},
-  {name:'KARNAL',      zone:'Zone-I'},
-  {name:'DELHI',       zone:'Zone-III'},
-  {name:'DEHRADUN',    zone:'Zone-III'},
+  {name:'YAMUNA NAGAR',zone:'Zone-I',  state:'HARYANA'},
+  {name:'SONEPAT',     zone:'Zone-I',  state:'HARYANA'},
+  {name:'ROPAR',       zone:'Zone-II', state:'PUNJAB'},
+  {name:'PANIPAT',     zone:'Zone-I',  state:'HARYANA'},
+  {name:'MOHALI',      zone:'Zone-II', state:'PUNJAB'},
+  {name:'KURUKSHETRA', zone:'Zone-I',  state:'HARYANA'},
+  {name:'KARNAL',      zone:'Zone-I',  state:'HARYANA'},
+  {name:'DELHI',       zone:'Zone-III',state:'DELHI NCR'},
+  {name:'DEHRADUN',    zone:'Zone-III',state:'UTTARAKHAND'},
 ];
 
-// Generate sample data
+// State → Area → Centre: each Area has its own Centres
+const CENTRES = {
+  'YAMUNA NAGAR': ['YAMUNA NAGAR CENTRE 1','YAMUNA NAGAR CENTRE 2'],
+  'SONEPAT':      ['SONEPAT CENTRE 1'],
+  'ROPAR':        ['ROPAR CENTRE 1','ROPAR CENTRE 2'],
+  'PANIPAT':      ['PANIPAT CENTRE 1'],
+  'MOHALI':       ['MOHALI CENTRE 1'],
+  'KURUKSHETRA':  ['KURUKSHETRA CENTRE 1','KURUKSHETRA CENTRE 2'],
+  'KARNAL':       ['KARNAL CENTRE 1'],
+  'DELHI':        ['DELHI CENTRE 1','DELHI CENTRE 2','DELHI CENTRE 3'],
+  'DEHRADUN':     ['DEHRADUN CENTRE 1'],
+};
+
+// ── MASTER DATA (MAJOR CENTRE) ─────────────────────────
+// Major Centres report directly to the Zone — no State/Area layer above them.
+const MAJOR_CENTRES = [
+  {name:'MC CHANDIGARH', zone:'Zone-II'},
+  {name:'MC DELHI',      zone:'Zone-III'},
+  {name:'MC JALANDHAR',  zone:'Zone-II'},
+  {name:'MC AMBALA',     zone:'Zone-I'},
+];
+
+const MC_DEPARTMENTS = [
+  {id:'MCA', name:'MC ADMIN',    color:'#7c3aed'},
+  {id:'MCS', name:'MC SECURITY', color:'#0891b2'},
+  {id:'MCL', name:'MC LANGAR',   color:'#c2410c'},
+];
+
+const MC_SEWA_BY_DEPT = {
+  MCA:['RECEPTION SEWA','RECORDS SEWA'],
+  MCS:['GATE SEWA','PARKING SEWA'],
+  MCL:['MC LANGAR HALL','MC PRASAD DISTRIBUTION'],
+};
+
+// Generate sample data — Beas (Area x Department)
 const DATA = [];
 let rid = 1;
 AREAS.forEach(area => {
@@ -951,6 +1044,7 @@ AREAS.forEach(area => {
       toDate: '',
       area: area.name,
       zone: area.zone,
+      state: area.state,
       dept: dept.id,
       values: {}
     };
@@ -963,34 +1057,136 @@ AREAS.forEach(area => {
   });
 });
 
+// Generate sample data — Major Centre (Major Centre x MC Department)
+const MC_DATA = [];
+let mcRid = 1;
+MAJOR_CENTRES.forEach(mc => {
+  MC_DEPARTMENTS.forEach(dept => {
+    const sns = MC_SEWA_BY_DEPT[dept.id];
+    const row = {
+      id: mcRid++,
+      period: 'LEAN',
+      year: 2026,
+      fromDate: '',
+      toDate: '',
+      area: mc.name,
+      zone: mc.zone,
+      dept: dept.id,
+      values: {}
+    };
+    sns.forEach(sn => {
+      row.values[sn] = Math.floor(Math.random() * 60);
+      if (Math.random() < 0.3) row.values[sn] = 0;
+    });
+    MC_DATA.push(row);
+  });
+});
+
 // ── STATE ─────────────────────────────────────────────
 let filterOpen = false;
 let currentView = 'pivot';
-let filters = {period:'LEAN', year:'2026', from:'', to:'', area:'', dept:'', sewa:''};
+let mode = 'beas'; // 'beas' | 'mc'
+let filters = {period:'LEAN', year:'2026', from:'', to:'', state:'', area:'', centre:'', dept:'', mc:'', mcDept:'', sewa:''};
 let filteredData = [...DATA];
+
+// ── MODE HELPERS ──────────────────────────────────────
+function depts()      { return mode === 'mc' ? MC_DEPARTMENTS : DEPARTMENTS; }
+function sewaMap()     { return mode === 'mc' ? MC_SEWA_BY_DEPT : SEWA_BY_DEPT; }
+function entities()    { return mode === 'mc' ? MAJOR_CENTRES : AREAS; }
+function dataset()     { return mode === 'mc' ? MC_DATA : DATA; }
+function entityLabel() { return mode === 'mc' ? 'Major Centre' : 'Area'; }
+function deptFilterValue() { return mode === 'mc' ? filters.mcDept : filters.dept; }
 
 // ── INIT ──────────────────────────────────────────────
 function init() {
   populateFilterOptions();
   applyFilters();
-  updateFilterChips();
   document.getElementById('filterPanel').classList.add('open');
   filterOpen = true;
 }
 
 function populateFilterOptions() {
-  const areas = [...new Set(DATA.map(r=>r.area))].sort();
-  const depts = DEPARTMENTS;
-  const sewas = [...new Set(DATA.flatMap(r=>Object.keys(r.values)))].sort();
+  const stEl = document.getElementById('fState');
+  stEl.length = 1;
+  STATES.forEach(s => stEl.add(new Option(s, s)));
 
-  const aEl = document.getElementById('fArea');
-  areas.forEach(a => aEl.add(new Option(a, a)));
+  populateAreaOptions();
+  populateCentreOptions();
 
   const dEl = document.getElementById('fDept');
-  depts.forEach(d => dEl.add(new Option(d.name, d.id)));
+  dEl.length = 1;
+  DEPARTMENTS.forEach(d => dEl.add(new Option(d.name, d.id)));
 
+  const mcEl = document.getElementById('fMC');
+  mcEl.length = 1;
+  MAJOR_CENTRES.forEach(mc => mcEl.add(new Option(mc.name, mc.name)));
+
+  const mcdEl = document.getElementById('fMCDept');
+  mcdEl.length = 1;
+  MC_DEPARTMENTS.forEach(d => mcdEl.add(new Option(d.name, d.id)));
+
+  populateSewaOptions();
+}
+
+function populateAreaOptions() {
+  const aEl = document.getElementById('fArea');
+  const selectedState = document.getElementById('fState').value;
+  aEl.length = 1;
+  AREAS.filter(a => !selectedState || a.state === selectedState)
+       .forEach(a => aEl.add(new Option(a.name, a.name)));
+}
+
+function populateCentreOptions() {
+  const cEl = document.getElementById('fCentre');
+  const selectedArea = document.getElementById('fArea').value;
+  cEl.length = 1;
+  const list = selectedArea ? (CENTRES[selectedArea] || []) : Object.values(CENTRES).flat();
+  list.forEach(c => cEl.add(new Option(c, c)));
+}
+
+function populateSewaOptions() {
   const sEl = document.getElementById('fSewa');
+  sEl.length = 1;
+  const sewas = [...new Set(Object.values(sewaMap()).flat())].sort();
   sewas.forEach(s => sEl.add(new Option(s, s)));
+}
+
+// ── CASCADING: State → Area → Centre (Beas only) ──────
+function onStateChange() {
+  document.getElementById('fArea').value = '';
+  populateAreaOptions();
+  document.getElementById('fCentre').value = '';
+  populateCentreOptions();
+  applyFilters();
+}
+function onAreaChange() {
+  populateCentreOptions();
+  document.getElementById('fCentre').value = '';
+  applyFilters();
+}
+
+// ── SEARCH SCOPE: Beas ⇄ Major Centre ─────────────────
+function setMode(m) {
+  if (mode === m) return;
+  mode = m;
+  filters = {period: filters.period, year: filters.year, from: filters.from, to: filters.to,
+             state:'', area:'', centre:'', dept:'', mc:'', mcDept:'', sewa:''};
+
+  ['fState','fArea','fCentre','fDept','fMC','fMCDept','fSewa'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+
+  document.getElementById('modeBeasBtn').classList.toggle('active-beas', mode === 'beas');
+  document.getElementById('modeMcBtn').classList.toggle('active-mc', mode === 'mc');
+
+  document.querySelectorAll('[data-scope]').forEach(el => {
+    el.style.display = el.dataset.scope === mode ? '' : 'none';
+  });
+
+  populateAreaOptions();
+  populateCentreOptions();
+  populateSewaOptions();
+  applyFilters();
 }
 
 // ── FILTER TOGGLE ─────────────────────────────────────
@@ -1008,16 +1204,32 @@ function applyFilters() {
   filters.year   = document.getElementById('fYear').value;
   filters.from   = document.getElementById('fFrom').value;
   filters.to     = document.getElementById('fTo').value;
-  filters.area   = document.getElementById('fArea').value;
-  filters.dept   = document.getElementById('fDept').value;
   filters.sewa   = document.getElementById('fSewa').value;
 
-  filteredData = DATA.filter(r => {
+  if (mode === 'beas') {
+    filters.state  = document.getElementById('fState').value;
+    filters.area   = document.getElementById('fArea').value;
+    filters.centre = document.getElementById('fCentre').value;
+    filters.dept   = document.getElementById('fDept').value;
+  } else {
+    filters.mc     = document.getElementById('fMC').value;
+    filters.mcDept = document.getElementById('fMCDept').value;
+  }
+
+  filteredData = dataset().filter(r => {
     if (filters.period && r.period !== filters.period) return false;
     if (filters.year   && r.year != filters.year)   return false;
-    if (filters.area   && r.area  !== filters.area)  return false;
-    if (filters.dept   && r.dept  !== filters.dept)  return false;
     if (filters.sewa   && !Object.keys(r.values).includes(filters.sewa)) return false;
+
+    if (mode === 'beas') {
+      if (filters.state  && r.state !== filters.state) return false;
+      if (filters.area   && r.area  !== filters.area)  return false;
+      if (filters.centre && !(CENTRES[r.area] || []).includes(filters.centre)) return false;
+      if (filters.dept   && r.dept  !== filters.dept)  return false;
+    } else {
+      if (filters.mc     && r.area !== filters.mc)     return false;
+      if (filters.mcDept && r.dept !== filters.mcDept) return false;
+    }
     return true;
   });
 
@@ -1027,21 +1239,29 @@ function applyFilters() {
 }
 
 function clearFilters() {
-  ['fPeriod','fYear','fFrom','fTo','fArea','fDept','fSewa'].forEach(id => {
+  ['fPeriod','fYear','fFrom','fTo','fState','fArea','fCentre','fDept','fMC','fMCDept','fSewa'].forEach(id => {
     const el = document.getElementById(id);
-    el.value = '';
+    if (el) el.value = '';
   });
-  filters = {period:'', year:'', from:'', to:'', area:'', dept:'', sewa:''};
-  filteredData = [...DATA];
+  populateAreaOptions();
+  populateCentreOptions();
+  filters = {period:'', year:'', from:'', to:'', state:'', area:'', centre:'', dept:'', mc:'', mcDept:'', sewa:''};
+  filteredData = [...dataset()];
   updateFilterChips();
   updateStats();
   renderView();
 }
 
 function clearFilter(type) {
-  const map = {period:['fPeriod','fYear'], area:'fArea', dept:'fDept', sewa:'fSewa', date:['fFrom','fTo']};
+  const map = {
+    period:['fPeriod','fYear'], date:['fFrom','fTo'],
+    state:'fState', area:'fArea', centre:'fCentre', dept:'fDept',
+    mc:'fMC', mcDept:'fMCDept', sewa:'fSewa'
+  };
   const ids = Array.isArray(map[type]) ? map[type] : [map[type]];
   ids.forEach(id => { if(document.getElementById(id)) document.getElementById(id).value=''; });
+  if (type === 'state') { populateAreaOptions(); populateCentreOptions(); }
+  if (type === 'area')  { populateCentreOptions(); }
   applyFilters();
 }
 
@@ -1049,41 +1269,54 @@ function clearFilter(type) {
 function updateFilterChips() {
   const wrap = document.getElementById('filterChips');
   const chips = [];
-  const yr = document.getElementById('fYear').value;
-  const pr = document.getElementById('fPeriod').value;
-  const area = document.getElementById('fArea').value;
-  const dept = document.getElementById('fDept').value;
-  const sewa = document.getElementById('fSewa').value;
-  const from = document.getElementById('fFrom').value;
-  const to   = document.getElementById('fTo').value;
 
+  // Scope chip is always shown first: blue "Beas" or purple "Major Centre"
+  chips.push(mode === 'mc'
+    ? `<span class="fc-chip fc-mode-mc">Major Centre</span>`
+    : `<span class="fc-chip fc-mode-beas">Beas</span>`);
+
+  const yr = filters.year, pr = filters.period;
   if (pr || yr) chips.push(`<span class="fc-chip fc-period">${[pr,yr].filter(Boolean).join(' ')} <span class="fc-x" onclick="clearFilter('period')">✕</span></span>`);
-  if (from || to) chips.push(`<span class="fc-chip fc-date">${from||'…'} → ${to||'…'} <span class="fc-x" onclick="clearFilter('date')">✕</span></span>`);
-  if (area) chips.push(`<span class="fc-chip fc-area">${area} <span class="fc-x" onclick="clearFilter('area')">✕</span></span>`);
-  if (dept) {
-    const d = DEPARTMENTS.find(d=>d.id===dept);
-    chips.push(`<span class="fc-chip fc-dept">${d?d.name:dept} <span class="fc-x" onclick="clearFilter('dept')">✕</span></span>`);
+  if (filters.from || filters.to) chips.push(`<span class="fc-chip fc-date">${filters.from||'…'} → ${filters.to||'…'} <span class="fc-x" onclick="clearFilter('date')">✕</span></span>`);
+
+  if (mode === 'beas') {
+    if (filters.state)  chips.push(`<span class="fc-chip fc-area">${filters.state} <span class="fc-x" onclick="clearFilter('state')">✕</span></span>`);
+    if (filters.area)   chips.push(`<span class="fc-chip fc-area">${filters.area} <span class="fc-x" onclick="clearFilter('area')">✕</span></span>`);
+    if (filters.centre) chips.push(`<span class="fc-chip fc-area">${filters.centre} <span class="fc-x" onclick="clearFilter('centre')">✕</span></span>`);
+    if (filters.dept) {
+      const d = DEPARTMENTS.find(d=>d.id===filters.dept);
+      chips.push(`<span class="fc-chip fc-dept">${d?d.name:filters.dept} <span class="fc-x" onclick="clearFilter('dept')">✕</span></span>`);
+    }
+  } else {
+    if (filters.mc) chips.push(`<span class="fc-chip fc-area">${filters.mc} <span class="fc-x" onclick="clearFilter('mc')">✕</span></span>`);
+    if (filters.mcDept) {
+      const d = MC_DEPARTMENTS.find(d=>d.id===filters.mcDept);
+      chips.push(`<span class="fc-chip fc-dept">${d?d.name:filters.mcDept} <span class="fc-x" onclick="clearFilter('mcDept')">✕</span></span>`);
+    }
   }
-  if (sewa) chips.push(`<span class="fc-chip fc-sewa">${sewa} <span class="fc-x" onclick="clearFilter('sewa')">✕</span></span>`);
 
-  const count = chips.length;
+  if (filters.sewa) chips.push(`<span class="fc-chip fc-sewa">${filters.sewa} <span class="fc-x" onclick="clearFilter('sewa')">✕</span></span>`);
+
+  const activeCount = chips.length - 1; // exclude the scope chip from the count badge
   const countEl = document.getElementById('filterCount');
-  countEl.textContent = count;
-  countEl.style.display = count ? 'inline' : 'none';
+  countEl.textContent = activeCount;
+  countEl.style.display = activeCount ? 'inline' : 'none';
 
-  wrap.innerHTML = `<span class="fc-label">Showing:</span>${chips.join('') || '<span style="font-size:12px;color:var(--txt3)">All requirements</span>'}${count?'<button class="clear-all" onclick="clearFilters()">Clear all</button>':''}`;
+  wrap.innerHTML = `<span class="fc-label">Showing:</span>${chips.join('')}${activeCount?'<button class="clear-all" onclick="clearFilters()">Clear all</button>':''}`;
 }
 
 // ── STATS ─────────────────────────────────────────────
 function updateStats() {
   const total = filteredData.reduce((s,r)=>s+Object.values(r.values).reduce((a,b)=>a+b,0),0);
-  const depts = new Set(filteredData.map(r=>r.dept)).size;
+  const dpts  = new Set(filteredData.map(r=>r.dept)).size;
   const areas = new Set(filteredData.map(r=>r.area)).size;
   const sewas = new Set(filteredData.flatMap(r=>Object.keys(r.values))).size;
   document.getElementById('statTotal').textContent = total.toLocaleString();
-  document.getElementById('statDepts').textContent = depts;
+  document.getElementById('statDepts').textContent = dpts;
   document.getElementById('statAreas').textContent = areas;
   document.getElementById('statSewa').textContent  = sewas;
+  const areaLbl = document.querySelector('#statAreas').closest('.stat-item').querySelector('.sl');
+  if (areaLbl) areaLbl.textContent = entityLabel() + 's';
 }
 
 // ── VIEWS ─────────────────────────────────────────────
@@ -1102,6 +1335,7 @@ function renderView() {
 // ── PIVOT (MATRIX) VIEW ────────────────────────────────
 function renderPivot() {
   const wrap = document.getElementById('tableWrap');
+  const DEPTS = depts(), SEWAMAP = sewaMap(), ENTITIES = entities(), label = entityLabel();
 
   if (!filteredData.length) {
     wrap.innerHTML = `<div class="empty-state"><div class="ei">🔍</div><h3>No requirements found</h3><p>Try adjusting your filters to see data.</p></div>`;
@@ -1109,26 +1343,27 @@ function renderPivot() {
   }
 
   // Determine visible depts and sewa names
-  const deptFilter = filters.dept;
+  const deptFilter = deptFilterValue();
   const sewaFilter = filters.sewa;
   const visibleDepts = deptFilter
-    ? DEPARTMENTS.filter(d=>d.id===deptFilter)
-    : DEPARTMENTS.filter(d=>filteredData.some(r=>r.dept===d.id));
+    ? DEPTS.filter(d=>d.id===deptFilter)
+    : DEPTS.filter(d=>filteredData.some(r=>r.dept===d.id));
 
   // Build column structure: for each dept → its sewa names visible in filtered data
   const deptCols = visibleDepts.map(dept => {
-    const allSewas = SEWA_BY_DEPT[dept.id] || [];
+    const allSewas = SEWAMAP[dept.id] || [];
     const sns = sewaFilter ? allSewas.filter(s=>s===sewaFilter) : allSewas;
     return { dept, sns };
   }).filter(dc => dc.sns.length > 0);
 
-  const visibleAreas = filters.area
-    ? AREAS.filter(a=>a.name===filters.area)
-    : AREAS.filter(a=>filteredData.some(r=>r.area===a.name));
+  const entityFilterVal = mode === 'mc' ? filters.mc : filters.area;
+  const visibleAreas = entityFilterVal
+    ? ENTITIES.filter(a=>a.name===entityFilterVal)
+    : ENTITIES.filter(a=>filteredData.some(r=>r.area===a.name));
 
   // Row 1: Dept group headers
   let deptHeaderCols = `
-    <th class="stub-th col-area" rowspan="2" style="position:sticky;left:0;z-index:15;background:var(--bg);min-width:160px;padding:9px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--txt3)">Area</th>
+    <th class="stub-th col-area" rowspan="2" style="position:sticky;left:0;z-index:15;background:var(--bg);min-width:160px;padding:9px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--txt3)">${label}</th>
     <th class="stub-th col-period" rowspan="2" style="position:sticky;left:160px;z-index:15;background:var(--bg);padding:9px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--txt3)">Period</th>
     <th class="stub-th col-daterange" rowspan="2" style="position:sticky;left:260px;z-index:15;background:var(--bg);padding:9px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--txt3);border-right:2px solid var(--bdr)">Date Range</th>
   `;
@@ -1240,14 +1475,15 @@ function renderPivot() {
 // ── LIST VIEW ─────────────────────────────────────────
 function renderList() {
   const wrap = document.getElementById('tableWrap');
+  const DEPTS = depts(), SEWAMAP = sewaMap(), label = entityLabel();
   if (!filteredData.length) {
     wrap.innerHTML = `<div class="empty-state"><div class="ei">🔍</div><h3>No requirements found</h3><p>Adjust your filters to see data.</p></div>`;
     return;
   }
 
   const rows = filteredData.map((r,i) => {
-    const dept = DEPARTMENTS.find(d=>d.id===r.dept);
-    const sns  = SEWA_BY_DEPT[r.dept] || [];
+    const dept = DEPTS.find(d=>d.id===r.dept);
+    const sns  = SEWAMAP[r.dept] || [];
     const rowTotal = sns.reduce((s,sn)=>s+(r.values[sn]||0),0);
     const sewaCells = sns.map(sn => {
       const v = r.values[sn]||0;
@@ -1273,15 +1509,15 @@ function renderList() {
   }).join('');
 
   // Dynamic headers based on first dept's sewa names
-  const depts = [...new Set(filteredData.map(r=>r.dept))];
-  const sewaHeaders = depts.flatMap(did => (SEWA_BY_DEPT[did]||[]).map(sn=>`<th style="text-align:right;padding:9px 12px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--txt3);min-width:120px">${sn}</th>`)).join('');
+  const dIds = [...new Set(filteredData.map(r=>r.dept))];
+  const sewaHeaders = dIds.flatMap(did => (SEWAMAP[did]||[]).map(sn=>`<th style="text-align:right;padding:9px 12px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--txt3);min-width:120px">${sn}</th>`)).join('');
 
   wrap.innerHTML = `
     <table style="width:100%;border-collapse:collapse;font-size:12.5px">
       <thead>
         <tr style="background:var(--bg);border-bottom:2px solid var(--bdr)">
           <th style="padding:9px 12px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--txt3);width:36px">#</th>
-          <th style="padding:9px 12px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--txt3);min-width:140px">Area</th>
+          <th style="padding:9px 12px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--txt3);min-width:140px">${label}</th>
           <th style="padding:9px 12px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--txt3)">Period</th>
           <th style="padding:9px 12px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--txt3)">Year</th>
           <th style="padding:9px 12px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--txt3);min-width:160px">Department</th>
